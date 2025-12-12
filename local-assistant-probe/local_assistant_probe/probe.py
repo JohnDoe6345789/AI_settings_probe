@@ -12,9 +12,26 @@ Design constraints:
 - No external dependencies (uses stdlib only).
 
 Usage:
+  # Using command-line arguments:
   python -m local_assistant_probe.probe --host localhost --port 3000 --api-key sk-... --model-hint llama3
 
+  # Using .env file (recommended):
+  cp .env.example .env
+  # Edit .env with your settings
+  python -m local_assistant_probe.probe
+
+Environment Variables:
+  PROBE_HOST        - API host (default: localhost)
+  PROBE_PORT        - API port (default: 3000)
+  PROBE_API_KEY     - API key (required)
+  PROBE_MODEL_HINT  - Model hint to search for (default: llama3)
+  PROBE_TITLE       - Configuration title (default: Local Assistant)
+  PROBE_MODEL_NAME  - Model name for output (default: LLama3)
+  PROBE_TIMEOUT     - Request timeout in seconds (default: 3.0)
+  PROBE_DEBUG       - Enable debug output (default: false)
+
 Notes:
+- Command-line arguments override environment variables.
 - This script will NOT modify your current working directory.
 - It prints YAML to stdout by default.
 """
@@ -22,10 +39,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
@@ -218,20 +237,39 @@ def _best_effort_probe(
     return None, notes
 
 
+def _load_env() -> None:
+    env_path = Path(".env")
+    if not env_path.exists():
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
+
+def _str_to_bool(val: str) -> bool:
+    return val.lower() in ("true", "1", "yes", "on")
+
+
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--host", default="localhost")
-    p.add_argument("--port", type=int, default=3000)
-    p.add_argument("--api-key", required=True)
-    p.add_argument("--model-hint", default="llama3")
-    p.add_argument("--title", default="Local Assistant")
-    p.add_argument("--model-name", default="LLama3")
-    p.add_argument("--timeout", type=float, default=3.0)
-    p.add_argument("--debug", action="store_true")
+    p.add_argument("--host", default=os.getenv("PROBE_HOST", "localhost"))
+    p.add_argument("--port", type=int, default=int(os.getenv("PROBE_PORT", "3000")))
+    p.add_argument("--api-key", default=os.getenv("PROBE_API_KEY"), required=not os.getenv("PROBE_API_KEY"))
+    p.add_argument("--model-hint", default=os.getenv("PROBE_MODEL_HINT", "llama3"))
+    p.add_argument("--title", default=os.getenv("PROBE_TITLE", "Local Assistant"))
+    p.add_argument("--model-name", default=os.getenv("PROBE_MODEL_NAME", "LLama3"))
+    p.add_argument("--timeout", type=float, default=float(os.getenv("PROBE_TIMEOUT", "3.0")))
+    p.add_argument("--debug", action="store_true", default=_str_to_bool(os.getenv("PROBE_DEBUG", "false")))
     return p.parse_args(list(argv))
 
 
 def main(argv: Sequence[str]) -> int:
+    _load_env()
     args = _parse_args(argv)
     res, notes = _best_effort_probe(
         host=args.host,
