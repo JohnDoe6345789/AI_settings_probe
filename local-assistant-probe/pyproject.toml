@@ -1,8 +1,24 @@
-[project]
+[tool.poetry]
 name = "local-assistant-probe"
 version = "0.1.0"
-requires-python = ">=3.10"
-dependencies = []
+description = "Local Assistant Probe - Probe OpenAI-compatible APIs for Continue config"
+authors = []
+readme = "README.md"
+packages = [{include = "local_assistant_probe"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.0"
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
+probe = "local_assistant_probe.probe:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 python_version = "3.10"
